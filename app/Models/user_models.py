@@ -156,6 +156,8 @@ class Student(User, Document):
     major_name = StringField(required=True)
     grade = IntField(required=True)
     faces = ReferenceField(Face)
+    pending_asks = ListField(StringField())
+    new_status_asks = ListField(StringField())
 
     def register_course(self, course):
         if not User.registerCourse(self, course):
@@ -169,6 +171,7 @@ class Student(User, Document):
         json['class_name'] = self.class_name
         json['major_name'] = self.major_name
         json['courses'] = self.get_course_briefs_dict(on_login=True)
+        json['new_status_asks'] = map(lambda x: x.to_dict(), self.new_status_asks)
         return json
 
     def to_dict_brief(self):
@@ -185,8 +188,6 @@ class Student(User, Document):
                 'gender': self.gender}
 
     def get_course_briefs_dict(self, on_login=False):
-        if on_login:
-            return map(lambda x: x.to_dict_brief(), self.courses)
         return map(lambda x: x.to_dict_brief(), self.courses)
 
     def get_faces(self):
@@ -197,7 +198,6 @@ class Student(User, Document):
             faces.save()
             self.update(faces=faces)
         return faces
-
 
     @staticmethod
     def get_user_with_id(user_id):

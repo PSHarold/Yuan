@@ -42,7 +42,7 @@ class Error(Enum):
     CLASS_NOT_FOUND = 713
     CHAPTER_NOT_FOUND = 714
     SECTION_NOT_FOUND = 715
-
+    ASK_FOR_LEAVE_NOT_FOUND = 720
 
 
     RESOURCE_ALREADY_EXISTS = 800
@@ -61,10 +61,15 @@ class Error(Enum):
     CHECKING_IN_NOT_AVAILABLE = 901
     COURSE_ALREADY_BEGUN = 907  # 课程已经开始,无法选座
     COURSE_IS_NOT_ON_TODAY = 908  # 选择的课程不在今天
+
     COURSE_ALREADY_OVER = 909  # 课程已经开始,无法选座
     COURSE_NOT_BEGUN = 910
     YOU_ARE_TOO_LATE = 911  # 迟到时间超过上限
+    COURSE_IS_NOT_ON_THE_GIVEN_TIME = 912
     YOU_DO_NOT_HAVE_THIS_COURSE = 921
+    ASK_FOR_LEAVE_HAS_BEEN_APPROVED = 922
+    ASK_FOR_LEAVE_HAS_BEEN_DISAPPROVED = 922
+    ALREADY_CHECKED_IN = 923
 
 # 错误处理,处理Error枚举,统一返回400状态码,接受键值对作为附加错误信息
 def handle_error(error_code, **kwargs):

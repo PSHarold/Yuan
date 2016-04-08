@@ -21,9 +21,11 @@ def get_course_pre():
     return get_by_id_or_error(SubCourse, combined_id, error=Error.SUB_COURSE_NOT_FOUND)
 
 
-def get_arg_or_error(arg_name):
+def get_arg_or_error(arg_name, allow_none=False):
     if arg_name in request.args:
         return request.args.get(arg_name)
+    elif allow_none:
+        return
     else:
         handle_error(Error.ARGUMENT_MISSING, arg_name=arg_name)
 
@@ -111,12 +113,12 @@ def require_having_course(func):
     def require(*args, **kwargs):
         get_user_pre()
         course = get_course_pre()
-        g.sub_course = course
+        g.course = course
         if g.user.role == 1:
-            if g.user.user_id not in no_dereference_id_only_list(course.teachers):
+            if g.user.user_id not in course.teachers:
                 handle_error(Error.YOU_DO_NOT_HAVE_THIS_COURSE)
         elif g.user.role == 2:
-            if g.user.user_id not in no_dereference_id_only_list(course.students):
+            if g.user.user_id not in course.students:
                 handle_error(Error.YOU_DO_NOT_HAVE_THIS_COURSE)
         return func(*args, **kwargs)
 

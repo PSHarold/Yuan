@@ -17,6 +17,7 @@ def user_login(token_only=False):
     if token_only:
         return success_response(token=user.generate_token())
     json_dict = user.to_dict_all()
+
     return success_response(user=json_dict, token=user.generate_token())
 
 
