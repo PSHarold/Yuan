@@ -15,10 +15,8 @@ PER_PAGE = 5
 
 # 获取POST参数中的课程编号和讲台编号,获取课程并返回,找不到则404
 def get_course_pre():
-    main_id = get_arg_or_error('course_id')
-    sub_id = get_arg_or_error('sub_id')
-    combined_id = main_id + '#' + sub_id
-    return get_by_id_or_error(SubCourse, combined_id, error=Error.SUB_COURSE_NOT_FOUND)
+    course_id = get_arg_or_error('course_id')
+    return get_by_id_or_error(SubCourse, course_id, error=Error.SUB_COURSE_NOT_FOUND)
 
 
 def get_arg_or_error(arg_name, allow_none=False):
@@ -91,7 +89,7 @@ def require_is_teacher(func):
     def require(*args, **kwargs):
         get_user_pre()
         if not g.user.role == 1:
-            handle_error(Error.YOU_ARE_NOT_THE_TEACHER)
+            abort(403)
         return func(*args, **kwargs)
 
     return require
@@ -102,7 +100,7 @@ def require_is_student(func):
     def require(*args, **kwargs):
         get_user_pre()
         if not g.user.role == 2:
-            handle_error(Error.YOU_ARE_NOT_A_STUDENT)
+            abort(403)
         return func(*args, **kwargs)
 
     return require

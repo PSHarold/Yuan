@@ -107,21 +107,22 @@ class Period:
         return time > self.end_at
 
     @staticmethod
-    def get_current_period_num(period_list=PERIOD_LIST, time=None):
+    def get_current_period_num(time=None):
         if time is None:
             time = datetime.datetime.now().time()
         result = None
-        for period in period_list:
+
+        for period in Period.PERIOD_LIST:
             cmp_result = period.cmp_to_time(time)
             if cmp_result == -1:
                 continue
             if cmp_result == 0:
-                return str(period.num)
+                return period.num
             else:
-                result = str(period.num - 1) + '.5'
+                result = period.num - 1 + 0.5
                 break
         if result is None:
-            result = '0.5'
+            result = 0.5
         return result
 
     @staticmethod

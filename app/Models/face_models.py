@@ -2,6 +2,7 @@
 from . import *
 from facepp import API, APIError, File
 from ..main.errors import *
+import os
 
 api = API(key='1d1ae053ef9d53ce1cd319fbfd25d069', secret='38hnSxLJDZQCflH84VmOvexSvM87sd29')
 
@@ -64,6 +65,11 @@ class Face(Document):
         try:
             success = api.person.remove_face(person_id=self.person_id, face_id=face_id)['success']
             if success:
+                path = self.faces[face_id]
+                try:
+                    os.remove(path)
+                except Exception, e:
+                    print e.message
                 del self.faces[face_id]
             self.save()
         except APIError:
@@ -90,8 +96,10 @@ class Face(Document):
             face_id = api.detection.detect(img=img)['face'][0]['face_id']
             return api.recognition.verify(face_id=face_id, person_name=self.student_id)['is_same_person']
         except APIError, e:
-            print e
+            print e.message
             return Error.FACE_API_ERROR
+        except IndexError:
+            return Error.IMAGE_CONTAINS_NO_FACE
 
     def delete_person(self):
         if self.person_id is None or self.person_id == "":

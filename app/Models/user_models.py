@@ -156,8 +156,8 @@ class Student(User, Document):
     major_name = StringField(required=True)
     grade = IntField(required=True)
     faces = ReferenceField(Face)
-    pending_asks = ListField(StringField())
-    new_status_asks = ListField(StringField())
+    pending_asks = ListField(ReferenceField('AskForLeave'))
+    new_status_asks = ListField(ReferenceField('AskForLeave'))
 
     def register_course(self, course):
         if not User.registerCourse(self, course):

@@ -3,6 +3,7 @@ from . import *
 import random
 from ..main.errors import *
 from .user_models import Student
+from datetime import datetime
 
 TESTS_PER_PAGE = 6
 NOTIFICATIONS_PER_PAGE = 10
@@ -26,7 +27,8 @@ class SubCourseSetting(EmbeddedDocument):
 
 class SubCourse(Document):
     name = StringField(required=True)
-    course_id = StringField(required=True, primary_key=True)
+    course_id = StringField(primary_key=True)
+    sub_id = StringField(required=True)
     teachers = ListField(StringField(), required=True)
     students = ListField(StringField(), required=True)
     times = EmbeddedDocumentListField(TimeAndRoom)
@@ -56,14 +58,15 @@ class SubCourse(Document):
         if teach_day != None and period != None:
 
             try:
-                combined_id = self.combined_id + '#' + str(teach_day.week) + '#' + str(teach_day.day) + '#' + str(
+                list_id = self.course_id + '_' + str(teach_day.week) + '_' + str(teach_day.day) + '_' + str(
                     period.num)
                 return AttendanceList.objects(
-                    combined_id=combined_id,
+                    list_id=list_id,
                     week_no=teach_day.week,
                     day_no=teach_day.day,
                     period_no=period.num).modify(upsert=True, new=True,
-                                                 set_on_insert__combined_id=combined_id,
+                                                 set_on_insert__list_id=list_id,
+                                                 set_on_insert__course_id=self.course_id,
                                                  set_on_insert__week_no=teach_day.week,
                                                  set_on_insert__day_no=teach_day.day,
                                                  set_on_insert__period_no=period.num)
@@ -72,16 +75,14 @@ class SubCourse(Document):
                 return None
         elif week_no is not None and day_no is not None and period_no is not None:
             try:
-                combined_id = self.combined_id + '#' + str(week_no) + '#' + str(day_no) + '#' + str(period_no)
+                list_id = self.course_id + '_' + str(week_no) + '_' + str(day_no) + '_' + str(period_no)
                 return AttendanceList.objects(
-                    combined_id=combined_id,
-                    week_no=week_no,
-                    day_no=day_no,
-                    period_no=period_no).modify(upsert=True, new=True,
-                                                set_on_insert__combined_id=combined_id,
-                                                set_on_insert__week_no=week_no,
-                                                set_on_insert__day_no=day_no,
-                                                set_on_insert__period_no=period_no)
+                    list_id=list_id, week_no=week_no, day_no=day_no, period_no=period_no).modify(upsert=True, new=True,
+                                                                                                 set_on_insert__course_id=self.course_id,
+                                                                                                 set_on_insert__week_no=week_no,
+                                                                                                 set_on_insert__day_no=day_no,
+                                                                                                 set_on_insert__period_no=period_no,
+                                                                                                 set_on_insert__absent_students=self.students)
             except DoesNotExist:
                 return None
 
@@ -107,12 +108,17 @@ class AskForLeave(Document):
     week_no = IntField()
     day_no = IntField()
     period_no = IntField()
+    created_at = DateTimeField(default=lambda: datetime.now())
+    viewed_at = DateTimeField()
 
     def to_dict(self):
-        return {'ask_id': str(self.ask_id), 'student_id': self.student_id, 'status': self.status,
-                'course_id': self.course_id, 'week_no': self.week_no, 'day_no': self.day_no,
-                'period_no': self.period_no,
-                'reason': self.reason}
+        d = {'ask_id': str(self.ask_id), 'student_id': self.student_id, 'status': self.status,
+             'course_id': self.course_id, 'week_no': self.week_no, 'day_no': self.day_no,
+             'period_no': self.period_no,
+             'reason': self.reason, 'created_at': self.created_at.strftime("%Y-%m-%d %H:%M:%S")}
+        if self.status != AskForLeaveStatus.PENDING._value_:
+            d['viewed_at'] = self.viewed_at.strftime("%Y-%m-%d %H:%M:%S")
+        return d
 
     def get_status(self):
         if self.status is None:
@@ -132,10 +138,18 @@ class AskForLeave(Document):
         self.status = status._value_
 
 
+class AttendanceStatus(Enum):
+    ABSENT = 0
+    PRESENT = 1
+    HAS_ASKED_FOR_LEAVE = 2
+
+
 class AttendanceList(Document):
     present_students = ListField(StringField())
     absent_students = ListField(StringField())
-    combined_id = StringField(primary_key=True)
+    asked_students = ListField(StringField())
+    list_id = StringField(primary_key=True)
+    course_id = StringField()
     asks = ListField(ReferenceField('AskForLeave'))
     week_no = IntField()
     day_no = IntField()
@@ -143,14 +157,21 @@ class AttendanceList(Document):
     processed = BooleanField(default=False)
 
     def check_in(self, student_id):
-        if student_id in self.asks:
-            ask = self.asks[student_id]
+        if student_id in self.asked_students:
+            ask = None
+            for t_ask in self.asks:
+                if t_ask.student_id == student_id:
+                    ask = t_ask
+            if ask is None:
+                self.update(add_to_set__present_students=student_id, pull__asked_students=student_id)
+                return
             if ask.is_approved():
                 return Error.ASK_FOR_LEAVE_HAS_BEEN_APPROVED
             else:
-                self.update(add_to_set__present_students=student_id, pull__asks_for_leave=ask)
+                self.update(add_to_set__present_students=student_id, pull__asks_for_leave=ask,
+                            pull__absent_students=student_id, pull__asked_students=student_id)
         else:
-            self.update(add_to_set__present_students=student_id)
+            self.update(add_to_set__present_students=student_id, pull__absent_students=student_id)
 
     def to_dict(self, course):
         all_students = set(course.students)
@@ -162,3 +183,15 @@ class AttendanceList(Document):
         asked = set(asked)
         return {'absent': list(all_students - presents - asked), 'asked': list(asked),
                 'present': self.present_students}
+
+    def get_attendance_status(self, student_id):
+        for ask in self.asks:
+            if ask.student_id == student_id:
+                if ask.is_approved() or ask.is_pending():
+                    return ask.to_dict()
+                else:
+                    return AttendanceStatus.ABSENT._value_
+        if student_id in self.present_students:
+            return AttendanceStatus.PRESENT._value_
+        else:
+            return AttendanceStatus.ABSENT._value_
